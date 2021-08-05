@@ -27,7 +27,7 @@ func New(processor Processor) *Repeater {
 //
 // If makeFirstCallImmediately is true, the first invocation of processor.Process() will happen immediately
 // instead of after the first interval has passed.
-func (w *Repeater) Run(parentContext context.Context, interval time.Duration, makeFirstCallImmediately bool) {
+func (r *Repeater) Run(parentContext context.Context, interval time.Duration, makeFirstCallImmediately bool) {
 	if interval <= 0 {
 		panic("interval must be > 0")
 	}
@@ -35,21 +35,21 @@ func (w *Repeater) Run(parentContext context.Context, interval time.Duration, ma
 	ctx, cancelFunc := signal.NotifyContext(parentContext, cancellationSignals()...)
 	defer cancelFunc()
 
-	defer w.processor.CleanUp()
+	defer r.processor.CleanUp()
 
-	w.repeat(ctx, interval, makeFirstCallImmediately)
+	r.repeat(ctx, interval, makeFirstCallImmediately)
 }
 
-func (w *Repeater) repeat(ctx context.Context, interval time.Duration, makeFirstCallImmediately bool) {
+func (r *Repeater) repeat(ctx context.Context, interval time.Duration, makeFirstCallImmediately bool) {
 	ticker := time.NewTicker(interval)
 	defer ticker.Stop()
 	if makeFirstCallImmediately {
-		w.processor.Process(ctx)
+		r.processor.Process(ctx)
 	}
 	for {
 		select {
 		case <-ticker.C:
-			w.processor.Process(ctx)
+			r.processor.Process(ctx)
 		case <-ctx.Done():
 			return
 		}
