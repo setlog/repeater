@@ -9,6 +9,11 @@ import (
 // Repeater implements a periodic timer which supports context-cancellation.
 type Repeater struct {
 	processor Processor
+
+	// If set to true before invoking Run(), Repeater will use a *time.Timer instead of a *time.Ticker
+	// to wait for the given interval, meaning the interval will span the time from the end of a call to
+	// processor.Process() to the start of the next call of processor.Process(), rather than from start to start.
+	WaitFull bool
 }
 
 // New constructs and returns a new *Repeater to periodically invoke given Processor.
@@ -37,10 +42,31 @@ func (r *Repeater) Run(parentContext context.Context, interval time.Duration, ma
 
 	defer r.processor.CleanUp()
 
-	r.repeat(ctx, interval, makeFirstCallImmediately)
+	if r.WaitFull {
+		r.repeatTimer(ctx, interval, makeFirstCallImmediately)
+	} else {
+		r.repeatTicker(ctx, interval, makeFirstCallImmediately)
+	}
 }
 
-func (r *Repeater) repeat(ctx context.Context, interval time.Duration, makeFirstCallImmediately bool) {
+func (r *Repeater) repeatTimer(ctx context.Context, interval time.Duration, makeFirstCallImmediately bool) {
+	timer := time.NewTimer(interval)
+	defer timer.Stop()
+	if makeFirstCallImmediately {
+		r.processor.Process(ctx)
+	}
+	for {
+		select {
+		case <-timer.C:
+			r.processor.Process(ctx)
+			timer.Reset(interval)
+		case <-ctx.Done():
+			return
+		}
+	}
+}
+
+func (r *Repeater) repeatTicker(ctx context.Context, interval time.Duration, makeFirstCallImmediately bool) {
 	ticker := time.NewTicker(interval)
 	defer ticker.Stop()
 	if makeFirstCallImmediately {

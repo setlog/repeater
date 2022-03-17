@@ -34,14 +34,17 @@ func (tp *testProcessor) CleanUp() {
 
 func TestCallNTimes(t *testing.T) {
 	for targetCount := 1; targetCount < 3; targetCount++ {
-		callNTimes(t, targetCount, false)
-		callNTimes(t, targetCount, true)
+		callNTimes(t, targetCount, false, false)
+		callNTimes(t, targetCount, true, false)
+		callNTimes(t, targetCount, false, true)
+		callNTimes(t, targetCount, true, true)
 	}
 }
 
-func callNTimes(t *testing.T, targetCount int, makeFirstCallImmediately bool) {
+func callNTimes(t *testing.T, targetCount int, makeFirstCallImmediately bool, waitFull bool) {
 	tp := &testProcessor{panicCount: targetCount}
 	rep := repeater.New(tp)
+	rep.WaitFull = waitFull
 	defer func() {
 		r := recover()
 		if r == nil {
